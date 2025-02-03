@@ -1,2 +1,2 @@
 # Adversarial-Reasoning
-A new algorithm that formulates jailbreaking as reasoning problem.
+A new algorithm that formulates jailbreaking as a reasoning problem.
