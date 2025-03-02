@@ -5,7 +5,7 @@ from convs import get_prompt_target, get_judge_system_prompt_harmbench
 from convs import LLAMA_SYSTEM_MESSAGE
 import gc
 import litellm
-from gray_swan import GraySwan
+# from gray_swan import GraySwan
 from fastchat.model import get_conversation_template
 import json
 import numpy as np
