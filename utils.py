@@ -166,9 +166,10 @@ def get_target_responses_API_prop(target_address, messages, name="llama-2", max_
             attempts += 1
         
         elif "swan" in target_address:
-            client = GraySwan(
-                api_key= os.environ.get("GRAYSWAN_API_KEY"),
-            )
+            raise Exception("GraySwan is not working")
+            #client = GraySwan(
+            #    api_key= os.environ.get("GRAYSWAN_API_KEY"),
+            #)
 
             outputs= []
 
