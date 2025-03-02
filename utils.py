@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from transformers import AutoModelForCausalLM, AutoTokenizer
-from convs import get_prompt_target, get_judge_system_prompt, get_judge_system_prompt_harmbench
+from convs import get_prompt_target, get_judge_system_prompt_harmbench
 from convs import LLAMA_SYSTEM_MESSAGE
 import gc
 import litellm
