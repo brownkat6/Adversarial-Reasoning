@@ -13,43 +13,57 @@ import os
 
 
 
-def load_model_and_tokenizer(model_path, tokenizer_path=None, device = "cuda:0", **kwargs):
+def load_model_and_tokenizer(model_path, tokenizer_path=None, device="cuda:0", **kwargs):
+    """Load model and tokenizer with appropriate settings for local use."""
+    # Default model loading parameters
+    default_kwargs = {
+        "low_cpu_mem_usage": True,
+        "device_map": "auto",
+        "cache_dir": "/n/holylabs/LABS/dwork_lab/Everyone/cache/transformers"
+    }
+    
+    # Update with user-provided kwargs
+    if kwargs:
+        default_kwargs.update(kwargs)
+    
+    # Set model-specific parameters based on GPU type
+    if torch.cuda.is_available() and "H100" in torch.cuda.get_device_name(0):
+        default_kwargs["torch_dtype"] = torch.bfloat16
+    else:
+        default_kwargs["load_in_8bit"] = True
+        if kwargs and kwargs.get("llm_int8_enable_fp32_cpu_offload"):
+            default_kwargs["llm_int8_enable_fp32_cpu_offload"] = True
+    
+    # Load the model
     model = AutoModelForCausalLM.from_pretrained(
         model_path,
-        torch_dtype=torch.float16,
-        trust_remote_code=True,
-        device_map= "auto", 
-        **kwargs# Disable auto device mapping
+        **default_kwargs
     ).eval()
     
+    # Load tokenizer
     tokenizer_path = model_path if tokenizer_path is None else tokenizer_path
-
     tokenizer = AutoTokenizer.from_pretrained(
         tokenizer_path,
         trust_remote_code=True,
-        use_fast=False
+        use_fast=False,
+        cache_dir=default_kwargs["cache_dir"]
     )
-
-    if 'llama-3' in tokenizer_path.lower():
+    
+    # Set padding token and side based on model type
+    if 'llama-3' in model_path.lower() or 'llama-2' in model_path.lower():
         tokenizer.pad_token = tokenizer.eos_token or tokenizer.unk_token
         tokenizer.padding_side = 'left'
-            
-    elif 'llama-2' in tokenizer_path:
-        tokenizer.pad_token = tokenizer.unk_token
-        tokenizer.padding_side = 'left'
-        
-    if 'vicuna' in model_path.lower():
+    elif 'vicuna' in model_path.lower():
         tokenizer.pad_token = tokenizer.eos_token
         tokenizer.padding_side = 'left'
-        
     elif not tokenizer.pad_token:
         tokenizer.pad_token = tokenizer.eos_token
+        
+    tokenizer.padding_side = 'left'
     
-    tokenizer.padding_side = 'left'  
-
     return model, tokenizer
 
-    
+
 def prompt_togetherai_batch(name, conv, batch):
     outputs = litellm.batch_completion(model = name, messages = [conv.to_openai_api_messages() for _ in range(batch)], 
                                     temperature= 1.0,
@@ -380,3 +394,48 @@ labelling_function_harmbench = [
         }
     }
 ]
+
+def generate_response(model, tokenizer, messages, temperature=0.7, max_tokens=1024):
+    """Generate response using local model instead of API."""
+    inputs = tokenizer(messages, return_tensors="pt", padding=True).to(model.device)
+    
+    with torch.no_grad():
+        outputs = model.generate(
+            input_ids=inputs.input_ids,
+            attention_mask=inputs.attention_mask,
+            max_new_tokens=max_tokens,
+            temperature=temperature,
+            do_sample=True,
+            pad_token_id=tokenizer.pad_token_id
+        )
+    
+    response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    return response
+
+def batch_generate_responses(model, tokenizer, message_list, temperature=0.7, max_tokens=1024):
+    """Generate responses for a batch of messages using local model."""
+    # Tokenize all messages
+    inputs = tokenizer(
+        message_list, 
+        return_tensors="pt", 
+        padding=True,
+        truncation=True
+    ).to(model.device)
+    
+    with torch.no_grad():
+        outputs = model.generate(
+            input_ids=inputs.input_ids,
+            attention_mask=inputs.attention_mask,
+            max_new_tokens=max_tokens,
+            temperature=temperature,
+            do_sample=True,
+            pad_token_id=tokenizer.pad_token_id,
+            num_return_sequences=1
+        )
+    
+    responses = [
+        tokenizer.decode(output, skip_special_tokens=True)
+        for output in outputs
+    ]
+    
+    return responses

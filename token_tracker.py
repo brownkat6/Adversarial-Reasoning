@@ -5,28 +5,19 @@ class TokenTracker:
     def __init__(self, tokenizer):
         self.tokenizer = tokenizer
         self.total_tokens = 0
-        self.messages_seen = set()  # Track unique messages to avoid double counting
+        self.messages_seen = set()
         
-    def count_tokens(self, text: str) -> int:
-        """Count tokens in a piece of text."""
-        return len(self.tokenizer.encode(text))
+    def add_generate_output(self, output_ids):
+        """Track only output tokens from a model.generate() call"""
+        # Count output tokens (excluding padding)
+        if isinstance(output_ids, torch.Tensor):
+            output_ids = output_ids.cpu().tolist()
+        if isinstance(output_ids[0], list):
+            for seq in output_ids:
+                self.total_tokens += sum(1 for id in seq if id != self.tokenizer.pad_token_id)
+        else:
+            self.total_tokens += sum(1 for id in output_ids if id != self.tokenizer.pad_token_id)
     
-    def add_message(self, message: str) -> None:
-        """Add a message and count its tokens if not seen before."""
-        if message not in self.messages_seen:
-            self.total_tokens += self.count_tokens(message)
-            self.messages_seen.add(message)
-    
-    def add_messages(self, messages: List[str]) -> None:
-        """Add multiple messages and count their tokens."""
-        for message in messages:
-            self.add_message(message)
-    
-    def get_total_tokens(self) -> int:
-        """Get the total number of tokens counted so far."""
+    def get_total_tokens(self):
+        """Get total tokens tracked"""
         return self.total_tokens
-    
-    def reset(self) -> None:
-        """Reset the token counter and message tracking."""
-        self.total_tokens = 0
-        self.messages_seen.clear() 

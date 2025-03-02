@@ -1,107 +1,107 @@
+# Adversarial-Reasoning/strings.py
 import torch
 import numpy as np
-from utils import prompt_togetherai_batch, prompt_togetherai_multi
+from utils import batch_generate_responses
 from convs import get_conv_feedbacker
 import json
 import re
 import concurrent.futures
 import time
 
-def get_attacks_string_with_timeout(address, conv, batch, timeout=120, retries=3, wait=60):
-    def call_api():
-        return get_attacks_string(address, conv, batch)
-
-    for attempt in range(retries):
-        with concurrent.futures.ThreadPoolExecutor() as executor:
-            future = executor.submit(call_api)
-            try:
-                result = future.result(timeout=timeout)
-                return result
-            except concurrent.futures.TimeoutError:
-                print(f"Attempt {attempt + 1} timed out. Retrying after {wait} seconds...")
-                time.sleep(wait)
-    
-    raise TimeoutError(f"All {retries} attempts timed out.")
-
-
-def get_attacks_string(attacker_address, conv, batch):
+def get_attacks_string(model, tokenizer, conv, batch):
+    """Generate attack strings using local model."""
     messages = []
     generated = 0
     
-    while True:
+    while generated < batch:
         try:
-            outputs = prompt_togetherai_batch(attacker_address, conv, batch - generated)    
-            for output in outputs:          
+            outputs = batch_generate_responses(
+                model,
+                tokenizer,
+                [conv.get_prompt() for _ in range(batch - generated)]
+            )
+            
+            for output in outputs:
                 result = extract_strings(output)
                 if result:
                     messages.append(result)
                     generated += 1
-                    
-        except: 
-            pass 
+        except Exception as e:
+            print(f"Error generating attacks: {e}")
+            continue
         
-        print(generated)
-        if generated == batch:
-            break
+        print(f"Generated {generated}/{batch}")
     
     return messages
 
-
-def get_feedbacks(name, address, goal, target, messages, idx, divs, num_branches):
-    convs = [get_conv_feedbacker(name, goal, target, gen_string_feedbacker_rand(messages, idx, divs), len(messages)//divs) for _ in range(num_branches)]
-    final_feedbacks = []
-    indices_to_generate = np.arange(len(convs))
+def get_feedbacks(model, tokenizer, name, goal, target, messages, idx, divs, num_branches):
+    """Get feedback using local model."""
+    convs = [
+        get_conv_feedbacker(
+            name, goal, target, 
+            gen_string_feedbacker_rand(messages, idx, divs), 
+            len(messages)//divs
+        ) 
+        for _ in range(num_branches)
+    ]
     
-    while True:
-        convs_to_generate = [convs[i] for i in indices_to_generate]
-        
-        outputs = prompt_togetherai_multi(address, convs_to_generate)
-        
-        indices_copy = np.copy(indices_to_generate)
-        
-        print(indices_to_generate)
-        
-        for i, idx in enumerate(indices_to_generate):
-            outputs[i] = outputs[i].replace("\\", "")
-            final_feedback = extract_final_feedback(outputs[i])
+    final_feedbacks = []
+    convs_to_process = convs
+    
+    while convs_to_process:
+        try:
+            outputs = batch_generate_responses(
+                model,
+                tokenizer,
+                [conv.get_prompt() for conv in convs_to_process]
+            )
             
-            if final_feedback is not None:
-                final_feedbacks.append(final_feedback)
-                indices_copy = np.delete(indices_copy, np.where(indices_copy == idx)[0])
-        
-        indices_to_generate = indices_copy
-         
+            remaining_convs = []
+            for conv, output in zip(convs_to_process, outputs):
+                output = output.replace("\\", "")
+                feedback = extract_final_feedback(output)
                 
-        if len(indices_to_generate) == 0:
-            break 
+                if feedback is not None:
+                    final_feedbacks.append(feedback)
+                else:
+                    remaining_convs.append(conv)
+            
+            convs_to_process = remaining_convs
+            
+        except Exception as e:
+            print(f"Error getting feedback: {e}")
+            break
     
     return final_feedbacks
 
-
-def get_new_prompts(convs, address): 
+def get_new_prompts(model, tokenizer, convs):
+    """Get new prompts using local model."""
     new_prompts = []
-    indices_to_generate = np.arange(len(convs))
+    convs_to_process = convs
     
-    while True:
-        convs_to_generate = [convs[i] for i in indices_to_generate]
-        
-        outputs = prompt_togetherai_multi(address, convs_to_generate)
-
-        indices_copy = np.copy(indices_to_generate)
-        
-        print(indices_to_generate)
-        for i, idx in enumerate(indices_to_generate):
-            outputs[i] =outputs[i].replace("\\", "")
-            prompt = extract_new_prompt(outputs[i])
+    while convs_to_process:
+        try:
+            outputs = batch_generate_responses(
+                model,
+                tokenizer,
+                [conv.get_prompt() for conv in convs_to_process]
+            )
             
-            if prompt is not None:
-                new_prompts.append(prompt)
-                indices_copy = np.delete(indices_copy, np.where(indices_copy == idx)[0])
-        
-        indices_to_generate = indices_copy   
+            remaining_convs = []
+            for conv, output in zip(convs_to_process, outputs):
+                output = output.replace("\\", "")
+                prompt = extract_new_prompt(output)
                 
-        if len(indices_to_generate) == 0:
-            break 
+                if prompt is not None:
+                    new_prompts.append(prompt)
+                else:
+                    remaining_convs.append(conv)
+            
+            convs_to_process = remaining_convs
+            
+        except Exception as e:
+            print(f"Error getting new prompts: {e}")
+            break
     
     return new_prompts
 
