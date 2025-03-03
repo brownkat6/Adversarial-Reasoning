@@ -247,7 +247,7 @@ def get_target_responses_API_prop(target_address, messages, name="llama-2", max_
             
 def get_losses(model, tokenizer, messages, target, model_name):
     # NOTE: disabled
-    return [0 for _ in range(len(messages))], [0 for _ in range(len(messages))]
+    return torch.tensor([0 for _ in range(len(messages))]), torch.tensor([0 for _ in range(len(messages))])
     
     with torch.no_grad():
         crit = nn.CrossEntropyLoss()
