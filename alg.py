@@ -53,6 +53,6 @@ class GWW_dfs_min(GWW):
     def get_prompt(self):
         first_content = self.content[0]
         self.content.pop(0)
-        total_tokens = self.get_total_tokens()
+        # total_tokens = self.get_total_tokens()
         
-        return first_content["init_prompt"], first_content["losses"], first_content["messages"], total_tokens
+        return first_content["init_prompt"], first_content["losses"], first_content["messages"]

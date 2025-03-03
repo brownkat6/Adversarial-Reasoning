@@ -20,6 +20,9 @@ def get_attacks_string(model, tokenizer, conv, batch):
                 tokenizer,
                 [conv.get_prompt() for _ in range(batch - generated)]
             )
+            for i in range(len(outputs)):
+                if "</think>" in outputs[i]:
+                    outputs[i] = outputs[i].split("</think>")[1]
             num_tokens_total += num_tokens
             
             for output in outputs:
@@ -57,6 +60,9 @@ def get_feedbacks(model, tokenizer, name, goal, target, messages, idx, divs, num
                 tokenizer,
                 [conv.get_prompt() for conv in convs_to_process]
             )
+            for i in range(len(outputs)):
+                if "</think>" in outputs[i]:
+                    outputs[i] = outputs[i].split("</think>")[1]
             num_tokens_total += num_tokens
             remaining_convs = []
             for conv, output in zip(convs_to_process, outputs):
@@ -88,6 +94,9 @@ def get_new_prompts(model, tokenizer, convs):
                 tokenizer,
                 [conv.get_prompt() for conv in convs_to_process]
             )
+            for i in range(len(outputs)):
+                if "</think>" in outputs[i]:
+                    outputs[i] = outputs[i].split("</think>")[1]
             num_tokens_total += num_tokens
 
             remaining_convs = []
