@@ -12,14 +12,15 @@ def get_attacks_string(model, tokenizer, conv, batch):
     """Generate attack strings using local model."""
     messages = []
     generated = 0
-    
+    num_tokens_total = 0
     while generated < batch:
         try:
-            outputs = batch_generate_responses(
+            outputs, num_tokens = batch_generate_responses(
                 model,
                 tokenizer,
                 [conv.get_prompt() for _ in range(batch - generated)]
             )
+            num_tokens_total += num_tokens
             
             for output in outputs:
                 result = extract_strings(output)
@@ -32,7 +33,7 @@ def get_attacks_string(model, tokenizer, conv, batch):
         
         print(f"Generated {generated}/{batch}")
     
-    return messages
+    return messages, num_tokens_total
 
 def get_feedbacks(model, tokenizer, name, goal, target, messages, idx, divs, num_branches):
     """Get feedback using local model."""
@@ -47,15 +48,16 @@ def get_feedbacks(model, tokenizer, name, goal, target, messages, idx, divs, num
     
     final_feedbacks = []
     convs_to_process = convs
+    num_tokens_total = 0
     
     while convs_to_process:
         try:
-            outputs = batch_generate_responses(
+            outputs, num_tokens = batch_generate_responses(
                 model,
                 tokenizer,
                 [conv.get_prompt() for conv in convs_to_process]
             )
-            
+            num_tokens_total += num_tokens
             remaining_convs = []
             for conv, output in zip(convs_to_process, outputs):
                 output = output.replace("\\", "")
@@ -72,21 +74,22 @@ def get_feedbacks(model, tokenizer, name, goal, target, messages, idx, divs, num
             print(f"Error getting feedback: {e}")
             break
     
-    return final_feedbacks
+    return final_feedbacks, num_tokens_total
 
 def get_new_prompts(model, tokenizer, convs):
     """Get new prompts using local model."""
     new_prompts = []
     convs_to_process = convs
-    
+    num_tokens_total = 0
     while convs_to_process:
         try:
-            outputs = batch_generate_responses(
+            outputs, num_tokens = batch_generate_responses(
                 model,
                 tokenizer,
                 [conv.get_prompt() for conv in convs_to_process]
             )
-            
+            num_tokens_total += num_tokens
+
             remaining_convs = []
             for conv, output in zip(convs_to_process, outputs):
                 output = output.replace("\\", "")
@@ -103,7 +106,7 @@ def get_new_prompts(model, tokenizer, convs):
             print(f"Error getting new prompts: {e}")
             break
     
-    return new_prompts
+    return new_prompts, num_tokens_total
 
 
 def gen_string_feedbacker_rand(messages, idx, div =8):
