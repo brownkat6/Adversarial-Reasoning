@@ -14,11 +14,11 @@ class GWW():
                            "messages": messages})
         
         # Track tokens if token_tracker is available
-        if self.token_tracker is not None:
-            self.token_tracker.add_message(init_prompt)
-            self.token_tracker.add_messages(messages)
+        #if self.token_tracker is not None:
+        #    self.token_tracker.add_message(init_prompt)
+        #    self.token_tracker.add_messages(messages)
         
-        self.sort_prompts()
+        # self.sort_prompts()
         
         if len(self.content) > self.num_prompts:
             self.content = self.content[:self.num_prompts]

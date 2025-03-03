@@ -246,6 +246,9 @@ def get_target_responses_API_prop(target_address, messages, name="llama-2", max_
                       
             
 def get_losses(model, tokenizer, messages, target, model_name):
+    # NOTE: disabled
+    return [0 for 0 in len(messages)], [0 for 0 in len(messages)]
+    
     with torch.no_grad():
         crit = nn.CrossEntropyLoss()
         losses = []
@@ -410,9 +413,12 @@ def generate_response(model, tokenizer, messages, temperature=0.7, max_tokens=10
         )
     
     response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+    
+    print(f"generate_response: \n {messages} \n {response}")
+    
     return response
 
-def batch_generate_responses(model, tokenizer, message_list, temperature=0.7, max_tokens=1024):
+def batch_generate_responses(model, tokenizer, message_list, temperature=0.7, max_tokens=2048):
     """Generate responses for a batch of messages using local model."""
     # Tokenize all messages
     inputs = tokenizer(
@@ -437,5 +443,7 @@ def batch_generate_responses(model, tokenizer, message_list, temperature=0.7, ma
         tokenizer.decode(output, skip_special_tokens=True)
         for output in outputs
     ]
+    
+    print(f"batch_generate_responses: \n {message_list} \n {responses}")
     
     return responses
